@@ -16,7 +16,6 @@ def main():
     parser.add_argument("--output-dir", type=Path, default=ROOT / "outputs")
     parser.add_argument("--cv", action="store_true")
     parser.add_argument("--save-models", action="store_true")
-    parser.add_argument("--skip-data-hashes", action="store_true")
     parser.add_argument("--list", action="store_true", help="Elenca gli script senza eseguirli.")
     args = parser.parse_args()
     for relative_path in EXPERIMENTS:
@@ -25,14 +24,15 @@ def main():
     if args.list:
         print("\n".join(EXPERIMENTS))
         return
+    if args.data_dir is None:
+        parser.error("Indica la cartella del dataset con --data-dir PATH.")
     output_directory = args.output_dir.resolve()
     for index, relative_path in enumerate(EXPERIMENTS, 1):
         script = ROOT / relative_path
         command = [sys.executable, "-u", str(script), "--output-dir",
                    str(output_directory / script.stem)]
-        if args.data_dir is not None:
-            command += ["--data-dir", str(args.data_dir.resolve())]
-        for flag in ("cv", "save_models", "skip_data_hashes"):
+        command += ["--data-dir", str(args.data_dir.resolve())]
+        for flag in ("cv", "save_models"):
             if getattr(args, flag):
                 command.append("--" + flag.replace("_", "-"))
         print(f"[{index}/{len(EXPERIMENTS)}] {script.name}", flush=True)

@@ -7,7 +7,6 @@ import gc
 import hashlib
 import importlib.metadata
 import json
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -43,39 +42,6 @@ CONFIGS = {'hybrid_d6': {'view': 'hybrid',
 PESI = {'hybrid_d6': 0.5, 'symmetric_d4': 0.5}
 SOGLIA = 0.5
 CSV_NAME = 'submission_finale_1_hybrid_symmetric.csv'
-EXPECTED_CSV_SHA256 = '8ff54fbf1ee304815cb30abe21fd9ab9c2e3b85a64ab67816e379da8abc48eee'
-
-
-
-HASH_DATI_ORIGINALI = {'train_sha256': '78f9e91c51b92adebe803bb09221347a55423dce080e433465edf527d2c20d0d', 'test_sha256': '25bdbb2a2f43d6ca480228c142299d325d3ea41eebfab8c4e652447b82914d60'}
-
-
-def trova_dataset(cartella=None):
-    richiesti = ("train.jsonl", "test.jsonl", "sample_submission.csv", "type_chart_gen2.csv")
-    if cartella is not None:
-        p = Path(cartella).expanduser()
-        if not all((p/n).is_file() for n in richiesti):
-            raise FileNotFoundError(f"In {p} devono esserci: {richiesti}")
-        return p
-    if os.environ.get("FDS_DATA_DIRECTORY"):
-        return trova_dataset(os.environ["FDS_DATA_DIRECTORY"])
-    candidati = []
-    for parent in [Path.cwd(), *Path.cwd().parents]:
-        candidati += [parent/"challenge/dataset", parent/"dataset", parent]
-    kaggle = Path("/kaggle/input")
-    if kaggle.exists():
-        candidati += [p.parent for p in kaggle.rglob("train.jsonl")]
-    validi = list(dict.fromkeys(p.resolve() for p in candidati if all((p/n).is_file() for n in richiesti)))
-    if len(validi) != 1:
-        raise FileNotFoundError("Imposta DATA_DIRECTORY: serve una cartella con train.jsonl, test.jsonl, sample_submission.csv e type_chart_gen2.csv.")
-    return validi[0]
-
-def sha256_file(path):
-    h = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for blocco in iter(lambda: stream.read(1024*1024), b""):
-            h.update(blocco)
-    return h.hexdigest()
 
 
 def load_battles(path, has_labels=True):
@@ -719,19 +685,19 @@ def save_submission(test_battles, sample, probabilities, output_directory):
     return csv_path
 
 
-def run(data_directory=None, output_directory="outputs/01_hybrid_symmetric",
-        run_cv=False, save_models=False, check_data_hashes=True):
-    data_directory = trova_dataset(data_directory)
+def run(data_directory, output_directory="outputs/01_hybrid_symmetric",
+        run_cv=False, save_models=False):
+    data_directory = Path(data_directory).expanduser()
+    required_files = ("train.jsonl", "test.jsonl", "sample_submission.csv", "type_chart_gen2.csv")
+    missing = [name for name in required_files if not (data_directory / name).is_file()]
+    if missing:
+        raise FileNotFoundError(f"File mancanti in {data_directory}: {', '.join(missing)}")
     output_directory = Path(output_directory)
     output_directory.mkdir(parents=True, exist_ok=True)
     versions = {name: importlib.metadata.version(name) for name in
                 ("numpy", "pandas", "scikit-learn", "xgboost", "joblib", "threadpoolctl")}
     print("Versioni:", versions, flush=True)
     print("Dataset:", data_directory, flush=True)
-    data_hashes = {name + "_sha256": sha256_file(data_directory / (name + ".jsonl"))
-                   for name in ("train", "test")}
-    if check_data_hashes and data_hashes != HASH_DATI_ORIGINALI:
-        raise ValueError("Dataset diverso dall'originale. Per usare altri dati: --skip-data-hashes.")
     train_battles, duplicates = remove_duplicate_battles(
         load_battles(data_directory / "train.jsonl"))
     test_battles = load_battles(data_directory / "test.jsonl", has_labels=False)
@@ -748,15 +714,9 @@ def run(data_directory=None, output_directory="outputs/01_hybrid_symmetric",
             output_directory=output_directory if save_models else None).astype(np.float64)
     final = sum(weight * probabilities[name] for name, weight in PESI.items())
     csv_path = save_submission(test_battles, sample, final, output_directory)
-    csv_hash = sha256_file(csv_path)
-    print("SHA256:", csv_hash, flush=True)
-    historical_match = csv_hash == EXPECTED_CSV_SHA256
-    print("CSV identico alla submission storica da 0.69000:", historical_match, flush=True)
     metadata = {
         "versions": versions, "configs": CONFIGS, "weights": PESI, "threshold": SOGLIA,
-        "data_hashes": data_hashes, "csv_sha256": csv_hash,
-        "historical_csv_match": historical_match, "cv": metrics,
-        "source_sha256": sha256_file(__file__),
+        "cv": metrics,
     }
     (output_directory / "run_info.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8")
@@ -765,13 +725,12 @@ def run(data_directory=None, output_directory="outputs/01_hybrid_symmetric",
 
 def main():
     parser = argparse.ArgumentParser(description="V14: XGBoost ibrido + simmetrico (50/50).")
-    parser.add_argument("--data-dir", type=Path, help="Cartella con i quattro file del dataset.")
+    parser.add_argument("--data-dir", type=Path, required=True, help="Cartella con i quattro file del dataset.")
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/01_hybrid_symmetric"))
     parser.add_argument("--cv", action="store_true", help="Aggiunge la CV a cinque fold.")
     parser.add_argument("--save-models", action="store_true", help="Salva anche modelli ed encoder.")
-    parser.add_argument("--skip-data-hashes", action="store_true", help="Consenti dati diversi dagli originali.")
     args = parser.parse_args()
-    run(args.data_dir, args.output_dir, args.cv, args.save_models, not args.skip_data_hashes)
+    run(args.data_dir, args.output_dir, args.cv, args.save_models)
 
 
 if __name__ == "__main__":

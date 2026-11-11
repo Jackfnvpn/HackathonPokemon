@@ -1,6 +1,6 @@
 # Ricette Python e notebook Kaggle
 
-Il notebook Kaggle scarica il codice da questo repository ed esegue `run_all.py`.
+Il notebook Kaggle scarica il codice pubblico con `!git` ed esegue `run_all.py` con `!python`.
 Ogni ricetta gira in un processo separato e salva i risultati nella propria cartella.
 
 Al momento e disponibile **1 delle 3 ricette previste**:
@@ -11,25 +11,26 @@ Al momento e disponibile **1 delle 3 ricette previste**:
 
 Le altre due ricette saranno convertite dai rispettivi notebook e aggiunte alla lista
 `EXPERIMENTS` in `run_all.py`. Il notebook Kaggle non dovra cambiare.
-I notebook e lo script gia presenti nel repository restano disponibili.
 
 ## Su Kaggle
 
-1. Importa `notebooks/run_kaggle.ipynb` in Kaggle.
+1. Rendi pubblico il repository e importa `notebooks/run_kaggle.ipynb` in Kaggle,
+   oppure copia le sue celle nel notebook che hai gia aperto.
 2. Aggiungi il dataset contenente `train.jsonl`, `test.jsonl`,
    `sample_submission.csv` e `type_chart_gen2.csv` nella stessa cartella.
 3. Attiva **Internet** nelle impostazioni del notebook.
-4. Il repository e privato: in **Add-ons > Secrets** aggiungi `GITHUB_TOKEN`,
-   un token GitHub con accesso in lettura ai contenuti di questo repository,
-   e abilitalo per il notebook. Il token non va scritto nelle celle.
-5. Esegui tutte le celle. Se il dataset non viene trovato automaticamente,
-   imposta `DATA_DIR` nella prima cella.
+4. Imposta `DATA_DIR` nella prima cella sulla cartella contenente i quattro file.
+   Il percorso iniziale e `/kaggle/input/competitions/fds-pokemon-battles-prediction-2026`:
+   controlla che corrisponda alla posizione dei file nel pannello Input.
+5. Esegui tutte le celle. La prima esecuzione clona la repo, quelle successive
+   aggiornano il codice con `git pull --ff-only`. Non servono token o GPU.
 
 Gli output sono in `/kaggle/working/outputs/01_hybrid_symmetric/`.
 La cella finale mostra i link ai CSV di submission, uno per ricetta.
 Non combina le tre ricette in un ulteriore ensemble.
-L'autenticazione e gia predisposta; per eseguire davvero il notebook serve il Secret
-configurato nel tuo account Kaggle.
+Le celle controllano l'esito dei comandi shell: un errore interrompe Run All.
+Per aggiungere la CV o salvare i modelli, aggiungi `--cv` o `--save-models`
+al comando `!python`.
 
 ## In locale
 
@@ -46,14 +47,15 @@ python experiments/01_hybrid_symmetric.py --data-dir /percorso/dataset
 
 Opzioni condivise:
 
+- `--data-dir PATH`: cartella obbligatoria contenente i quattro file del dataset.
 - `--output-dir PATH`: cartella dei risultati.
 - `--cv`: aggiunge la validazione a cinque fold (seed 17).
 - `--save-models`: salva modelli XGBoost ed encoder e verifica il caricamento.
-- `--skip-data-hashes`: consente dati diversi dagli originali, ad esempio per una prova.
 - `python run_all.py --list`: elenca le ricette senza addestrare.
 
-Se `--data-dir` e omesso, la ricerca automatica controlla le cartelle locali,
-`FDS_DATA_DIRECTORY` e `/kaggle/input`; piu dataset compatibili richiedono un percorso esplicito.
+Gli script leggono soltanto la cartella indicata con `--data-dir`.
+Se manca uno dei quattro file, si fermano con un messaggio esplicito.
+`--list` funziona anche senza indicare il dataset.
 
 ## Cosa conserva la conversione
 
@@ -68,11 +70,11 @@ CV e salvataggio dei modelli sono facoltativi. Gli ID seguono l'ordine del sampl
 Il numero di righe e ricavato dal sample anziche essere fissato a 5000.
 
 Lo score **0.69000 e storico**, comunicato nel notebook originale: la conversione
-non costituisce una nuova valutazione. Gli hash dei dati originali sono controllati
-per impostazione iniziale; quello della submission viene confrontato a fine esecuzione.
+non costituisce una nuova valutazione. I confronti con gli SHA storici di dataset
+e submission sono stati rimossi; resta l'hash delle battaglie per trovare i duplicati.
 Versioni diverse delle librerie possono cambiare le previsioni. `run_info.json`
-registra versioni effettive, configurazione e hash, senza promettere identita numerica
-fra ambienti diversi. Il file `requirements.txt` preesistente non e stato modificato.
+registra versioni effettive, configurazione ed eventuali metriche CV, senza promettere
+identita numerica fra ambienti diversi.
 
 La verifica locale della conversione usa anche dati sintetici; il training completo
 sui dati della competizione richiede i quattro file del dataset.
