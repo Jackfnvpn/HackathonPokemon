@@ -1,0 +1,8 @@
+# Requisiti minimi; le versioni effettive sono salvate in run_info.json.
+# Il notebook Kaggle usa le librerie gia presenti, senza installazioni automatiche.
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+xgboost>=2.0
+joblib>=1.3
+threadpoolctl>=3.1
